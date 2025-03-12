@@ -6,19 +6,23 @@ class DBHelper {
   static Database? _database;
   static final DBHelper instance = DBHelper._init();
 
-  DBHelper._init();
+  DBHelper._init(); // Konstruktor
 
   Future<Database> get database async {
-    if (_database != null) return _database!;
+    //
+    if (_database != null)
+      return _database!; // Jika database sudah ada, kembalikan database yang sudah ada
     _database = await _initDB('contacts.db');
     return _database!;
   }
 
   Future<Database> _initDB(String filePath) async {
+    // Membuat database
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
     return await openDatabase(
+      // Membuka database
       path,
       version: 1,
       onCreate: _createDB,
@@ -32,6 +36,7 @@ class DBHelper {
   }
 
   Future<void> _createDB(Database db, int version) async {
+    // Membuat tabel contacts
     await db.execute('''
       CREATE TABLE contacts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,

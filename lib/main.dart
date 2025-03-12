@@ -15,6 +15,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      // MaterialApp sebagai root widget
       debugShowCheckedModeBanner: false,
       title: 'CRUD Contacts',
       theme: ThemeData(primarySwatch: Colors.blue),
@@ -24,24 +25,33 @@ class MyApp extends StatelessWidget {
 }
 
 class ContactPage extends StatefulWidget {
+  // Menggunakan StatefulWidget karena datanya berubah (CRUD)
   @override
-  _ContactPageState createState() => _ContactPageState();
+  _ContactPageState createState() => _ContactPageState(); // Membuat state untuk menangani state
 }
 
 class _ContactPageState extends State<ContactPage> {
-  List<Contact> contacts = [];
+  List<Contact> contacts = []; // List untuk menampung data kontak
 
   @override
   void initState() {
+    // initState() akan dipanggil pertama kali saat widget diinisialisasi
     super.initState();
     _loadContacts();
   }
 
   Future<void> _loadContacts() async {
+    // Mengambil data kontak dari database
     final data = await DBHelper.instance.getContacts();
     setState(() {
+      // Setelah data didapat, update state
       contacts = data;
     });
+
+    // Debugging: Cek apakah path gambar ada dalam database
+    for (var contact in contacts) {
+      print("Contact: ${contact.name}, Image Path: ${contact.imagePath}");
+    }
   }
 
   Future<void> _addContact(String name, String phone, String? imagePath) async {
@@ -57,11 +67,12 @@ class _ContactPageState extends State<ContactPage> {
   }
 
   Future<void> _deleteContact(int id) async {
-    await DBHelper.instance.deleteContact(id);
+    await DBHelper.instance.deleteContact(id); // Hapus kontak berdasarkan ID
     _loadContacts();
   }
 
   void _showForm({Contact? contact}) {
+    // Menampilkan form untuk menambah atau mengedit kontak
     final TextEditingController nameController = TextEditingController(
       text: contact?.name ?? '',
     );
@@ -70,112 +81,110 @@ class _ContactPageState extends State<ContactPage> {
     );
     String? imagePath = contact?.imagePath;
 
-    Future<void> _pickImage(Function(String) onImagePicked) async {
-      if (Platform.isAndroid || Platform.isIOS) {
-        // Gunakan image_picker untuk mobile
-        final picker = ImagePicker();
-        final XFile? pickedFile = await picker.pickImage(
-          source: ImageSource.gallery,
-        );
-        if (pickedFile != null) {
-          onImagePicked(pickedFile.path);
-        }
+    Future<void> _pickImage() async {
+      // Fungsi untuk memilih gambar dari galeri
+      final picker = ImagePicker();
+      final XFile? pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+      );
+
+      if (pickedFile != null) {
+        setState(() {
+          imagePath = pickedFile.path;
+        });
       }
-      // else {
-      //   // Gunakan file_picker untuk desktop
-      //   FilePickerResult? result = await FilePicker.platform.pickFiles(
-      //     type: FileType.image, // Hanya izinkan memilih gambar
-      //   );
-      //   if (result != null) {
-      //     onImagePicked(result.files.single.path!);
-      //   }
-      // }
-      // final pickedFile = await ImagePicker().pickImage(
-      //   source: ImageSource.gallery,
-      // );
-      // if (pickedFile != null) {
-      //   setState(() {
-      //     imagePath = pickedFile.path;
-      //   });
-      // }
     }
 
     showDialog(
+      // Menampilkan dialog untuk Form Input
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: Text(contact == null ? 'Tambah Kontak' : 'Edit Kontak'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                keyboardType: TextInputType.name,
-                decoration: InputDecoration(labelText: 'Nama'),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z. ]')),
+        return StatefulBuilder(
+          // StatefulBuilder agar bisa memperbarui state
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: Text(contact == null ? 'Tambah Kontak' : 'Edit Kontak'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    // Input Nama
+                    controller: nameController,
+                    keyboardType: TextInputType.name,
+                    decoration: InputDecoration(labelText: 'Nama'),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z. ]')),
+                    ],
+                  ),
+                  TextField(
+                    // Input Nomor HP
+                    controller: phoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(labelText: 'Nomor HP'),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[+0-9 ]')),
+                    ],
+                  ),
+                  SizedBox(height: 10),
+                  imagePath != null
+                      ? Image.file(
+                        File(imagePath!),
+                        height: 100,
+                        width: 100,
+                        fit: BoxFit.cover,
+                      )
+                      : Icon(Icons.image, size: 100, color: Colors.grey),
+                  TextButton(
+                    onPressed: () async {
+                      final picker = ImagePicker();
+                      final XFile? pickedFile = await picker.pickImage(
+                        source: ImageSource.gallery,
+                      );
+
+                      if (pickedFile != null) {
+                        setStateDialog(() {
+                          imagePath = pickedFile.path;
+                          print("Path Gambar: $imagePath"); // Debugging
+                        });
+                      }
+                    },
+                    child: Text("Pilih Gambar"),
+                  ),
                 ],
               ),
-              TextField(
-                controller: phoneController,
-                keyboardType: TextInputType.phone,
-                decoration: InputDecoration(labelText: 'Nomor HP'),
-                inputFormatters: [
-                  FilteringTextInputFormatter.allow(RegExp(r'[+0-9 ]')),
-                ],
-              ),
-              SizedBox(height: 10),
-              imagePath != null
-                  ? Image.file(
-                    File(imagePath!),
-                    height: 100,
-                    width: 100,
-                    fit: BoxFit.cover,
-                  )
-                  : Icon(Icons.image, size: 100, color: Colors.grey),
-              TextButton(
-                onPressed: () async {
-                  await _pickImage((pickedPath) {
-                    setState(() {
-                      imagePath = pickedPath;
-                    });
-                  });
-                },
-                child: Text("Pilih Gambar"),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              child: Text('Batal'),
-              onPressed: () => Navigator.pop(context),
-            ),
-            ElevatedButton(
-              child: Text(contact == null ? 'Tambah' : 'Update'),
-              onPressed: () {
-                if (nameController.text.isNotEmpty &&
-                    phoneController.text.isNotEmpty) {
-                  if (contact == null) {
-                    _addContact(
-                      nameController.text,
-                      phoneController.text,
-                      imagePath,
-                    );
-                  } else {
-                    _updateContact(
-                      Contact(
-                        id: contact.id,
-                        name: nameController.text,
-                        phone: phoneController.text,
-                        imagePath: imagePath,
-                      ),
-                    );
-                  }
-                  Navigator.pop(context);
-                }
-              },
-            ),
-          ],
+              actions: [
+                TextButton(
+                  child: Text('Batal'),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                ElevatedButton(
+                  child: Text(contact == null ? 'Tambah' : 'Update'),
+                  onPressed: () {
+                    if (nameController.text.isNotEmpty &&
+                        phoneController.text.isNotEmpty) {
+                      if (contact == null) {
+                        _addContact(
+                          nameController.text,
+                          phoneController.text,
+                          imagePath,
+                        );
+                      } else {
+                        _updateContact(
+                          Contact(
+                            id: contact.id,
+                            name: nameController.text,
+                            phone: phoneController.text,
+                            imagePath: imagePath,
+                          ),
+                        );
+                      }
+                      Navigator.pop(context);
+                    }
+                  },
+                ),
+              ],
+            );
+          },
         );
       },
     );
@@ -184,21 +193,23 @@ class _ContactPageState extends State<ContactPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // backgroundColor: Color.fromARGB(255, 20, 1, 2),
+      // Scaffold sebagai layout utama
       appBar: AppBar(
         title: Text('Daftar Kontak', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.black,
       ),
       body: GridView.builder(
-        padding: EdgeInsets.all(8.0),
+        // Menampilkan data kontak dalam grid
+        padding: EdgeInsets.all(10.0),
         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2, // Dua kolom dalam grid
-          crossAxisSpacing: 8.0,
-          mainAxisSpacing: 8.0,
-          childAspectRatio: 3 / 3.5,
+          crossAxisSpacing: 10.0,
+          mainAxisSpacing: 10.0,
+          childAspectRatio: 2.5 / 3.5, // lebar dan tinggi
         ),
         itemCount: contacts.length,
         itemBuilder: (context, index) {
+          // Membuat item dalam grid
           final contact = contacts[index];
           return Container(
             padding: EdgeInsets.all(8.0),
@@ -215,11 +226,13 @@ class _ContactPageState extends State<ContactPage> {
               ],
             ),
             child: Column(
+              // Menampilkan data kontak
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child:
-                      contact.imagePath != null
+                      contact.imagePath != null && // operator ternary
+                              File(contact.imagePath!).existsSync()
                           ? ClipRRect(
                             borderRadius: BorderRadius.circular(8.0),
                             child: Image.file(
@@ -262,6 +275,7 @@ class _ContactPageState extends State<ContactPage> {
         },
       ),
       floatingActionButton: FloatingActionButton(
+        // Tombol tambah kontak
         child: Icon(Icons.add),
         onPressed: () => _showForm(),
       ),
